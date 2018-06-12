@@ -1,8 +1,8 @@
 (ns helping-hands.server
   (:gen-class) ; for -main method in uberjar
-  (:require [io.pedestal.http :as server]
-            [io.pedestal.http.route :as route]
-            [helping-hands.service :as service]))
+  (:require [helping-hands.service :as service]
+            [io.pedestal.http :as server]
+            [io.pedestal.http.route :as route]))
 
 ;; This is an adapted service map, that can be started and stopped
 ;; From the REPL you can call server/start and server/stop on this service
@@ -53,4 +53,3 @@
 ;;  [_]
 ;;  (server/servlet-destroy @servlet)
 ;;  (reset! servlet nil))
-

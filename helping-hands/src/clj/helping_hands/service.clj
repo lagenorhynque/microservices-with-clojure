@@ -1,18 +1,66 @@
 (ns helping-hands.service
-  (:require [io.pedestal.http :as http]
-            [io.pedestal.http.route :as route]
+  (:require [cheshire.core :as cheshire]
+            [io.pedestal.http :as http]
             [io.pedestal.http.body-params :as body-params]
+            [io.pedestal.http.route :as route]
+            [io.pedestal.interceptor.chain :as chain]
             [ring.util.response :as ring-resp]))
 
-(defn about-page
-  [request]
-  (ring-resp/response (format "Clojure %s - served from %s"
-                              (clojure-version)
-                              (route/url-for ::about-page))))
+(defn- get-uid
+  "TODO: Integrate with Auth service"
+  [token]
+  (when (and (string? token)
+             (not (empty? token)))
+    ;; validate token
+    {"uid" "hhuser"}))
+
+(def auth
+  {:name ::auth
+   :enter
+   (fn [context]
+     (let [token (-> context :request :headers (get "token"))]
+       (if-let [uid (and (not (nil? token))
+                         (get-uid token))]
+         (assoc-in context [:request :tx-data :user] uid)
+         (chain/terminate
+          (assoc context
+                 :response {:status 401
+                            :body "Auth token not found"})))))
+   :error
+   (fn [context ex-info]
+     (assoc context
+            :response {:status 500
+                       :body (.getMessage ex-info)}))})
+
+(defn- get-service-details
+  "TODO: Get the service details from external API"
+  [sid]
+  {"sid" sid, "name" "House Cleaning"})
+
+(def data-validate
+  {:name ::validate
+   :enter
+   (fn [context]
+     (let [sid (-> context :request :form-params :sid)]
+       (if-let [service (and (not (nil? sid))
+                             (get-service-details sid))]
+         (assoc-in context [:request :tx-data :service] service)
+         (chain/terminate
+          (assoc context
+                 :response {:status 400
+                            :body "Invalid Service ID"})))))
+   :error
+   (fn [context ex-info]
+     (assoc context
+            :response {:status 500
+                       :body (.getMessage ex-info)}))})
 
 (defn home-page
   [request]
-  (ring-resp/response "Hello World!"))
+  (ring-resp/response
+   (if-let [uid (-> request :tx-data :user (get "uid"))]
+     (cheshire/generate-string {:msg (str "Hello " uid "!")})
+     (cheshire/generate-string {:msg "Hello World!"}))))
 
 ;; Defines "/" and "/about" routes with their associated :get handlers.
 ;; The interceptors defined after the verb map (e.g., {:get home-page}
@@ -20,8 +68,7 @@
 (def common-interceptors [(body-params/body-params) http/html-body])
 
 ;; Tabular routes
-(def routes #{["/" :get (conj common-interceptors `home-page)]
-              ["/about" :get (conj common-interceptors `about-page)]})
+(def routes #{["/" :post (conj common-interceptors `auth `data-validate `home-page)]})
 
 ;; Map-based routes
 ;(def routes `{"/" {:interceptors [(body-params/body-params) http/html-body]
@@ -76,4 +123,3 @@
                                         ;:key-password "password"
                                         ;:ssl-port 8443
                                         :ssl? false}})
-
