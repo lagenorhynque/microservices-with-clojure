@@ -1,6 +1,7 @@
 (ns helping-hands.consumer.persistence
   "Persistence Port and Adapter for Consumer Service"
-  (:require [datomic.api :as d]))
+  (:require [datomic.api :as d]
+            [helping-hands.consumer.config :as cfg]))
 
 ;;; Consumer Persistence Port for Adapters to Plug-in
 
@@ -51,9 +52,9 @@
 
 (defn create-consumer-database
   "Creates a consumer database and returns the connection"
-  [d]
+  []
   ;; create and connect to the database
-  (let [dburi (str "datomic:mem://" d)
+  (let [dburi (cfg/get-config [:datomic :uri])
         db (d/create-database dburi)
         conn (d/connect dburi)]
     ;; transact schema if database was created

@@ -1,9 +1,21 @@
 (ns helping-hands.consumer.service-test
   (:require [cheshire.core :as cheshire]
             [clojure.test :as t]
+            [helping-hands.consumer.config :as cfg]
             [helping-hands.consumer.service :as service]
             [io.pedestal.http :as http]
-            [io.pedestal.test :as pt]))
+            [io.pedestal.test :as pt]
+            [mount.core :as mount]))
+
+(t/use-fixtures
+  :once (fn [f]
+          (cfg/int-config {})
+          (f)))
+(t/use-fixtures
+  :each (fn [f]
+          (mount/start)
+          (f)
+          (mount/stop)))
 
 (def service
   (::http/service-fn (http/create-servlet service/service)))

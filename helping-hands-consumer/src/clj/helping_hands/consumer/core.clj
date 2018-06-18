@@ -3,14 +3,10 @@
   (:require [cheshire.core :as cheshire]
             [clojure.string :as str]
             [helping-hands.consumer.persistence :as persistence]
+            [helping-hands.consumer.state :refer [consumerdb]]
             [io.pedestal.interceptor.chain :as chain])
   (:import (java.io IOException)
            (java.util UUID)))
-
-;; delay the check for database and connection
-;; till the first request to access @consumerdb
-(def ^:private consumerdb
-  (delay (persistence/create-consumer-database "consumer")))
 
 ;;; validation interceptors
 
@@ -79,7 +75,7 @@
    :enter
    (fn [context]
      (let [tx-data (:tx-data context)
-           entity (persistence/entity @consumerdb (:id tx-data) (:flds tx-data))]
+           entity (persistence/entity consumerdb (:id tx-data) (:flds tx-data))]
        (if (empty? entity)
          (assoc context :response {:status 404 :body "No such consumer"})
          (assoc context :response {:status 200
@@ -96,7 +92,7 @@
    (fn [context]
      (let [tx-data (:tx-data context)
            id (:id tx-data)
-           db (persistence/upsert @consumerdb id
+           db (persistence/upsert consumerdb id
                                   (:name tx-data) (:address tx-data)
                                   (:mobile tx-data) (:email tx-data)
                                   (:geo tx-data))]
@@ -105,7 +101,7 @@
          (assoc context
                 :response {:status 200
                            :body (cheshire/generate-string
-                                  (persistence/entity @consumerdb id []))}))))
+                                  (persistence/entity consumerdb id []))}))))
    :error
    (fn [context ex-info]
      (assoc context
@@ -120,7 +116,7 @@
            ;; generate a random ID if it is not specified
            id (str (UUID/randomUUID))
            tx-data (if (:id tx-data) tx-data (assoc tx-data :id id))
-           db (persistence/upsert @consumerdb id
+           db (persistence/upsert consumerdb id
                                   (:name tx-data) (:address tx-data)
                                   (:mobile tx-data) (:email tx-data)
                                   (:geo tx-data))]
@@ -129,7 +125,7 @@
          (assoc context
                 :response {:status 200
                            :body (cheshire/generate-string
-                                  (persistence/entity @consumerdb id []))}))))
+                                  (persistence/entity consumerdb id []))}))))
    :error
    (fn [context ex-info]
      (assoc context
@@ -141,7 +137,7 @@
    :enter
    (fn [context]
      (let [tx-data (:tx-data context)
-           db (persistence/delete @consumerdb (:id tx-data))]
+           db (persistence/delete consumerdb (:id tx-data))]
        (if (nil? @db)
          (assoc context :response {:status 404 :body "No such consumer"})
          (assoc context
